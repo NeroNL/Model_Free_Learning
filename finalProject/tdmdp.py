@@ -48,77 +48,106 @@ def tdmdp():
     mdpMap[gX][gY] = reward_for_reaching_goal
 
     countMap = np.zeros([row, col, 4], dtype = 'float32')
+    oldCountMap = np.copy(countMap)
 
-    for s in range(1000):
     
-        probUp = rand.random();
-        probDown = rand.random();
-        probLeft = rand.random();
-        probRight = rand.random();
-        total = probUp + probDown + probLeft + probRight
-        probUp /= total
-        probDown /= total
-        probLeft /= total
-        probRight /= total
-        probList = [probUp, probDown, probLeft, probRight]
-        
-        policyMap = np.zeros([row, col, 4], dtype = 'float32')
-        oldPolicyMap = np.zeros([row, col, 4], dtype = 'float32')
-        
+    probUp = 0.8#rand.random();
+    probDown = 0#rand.random();
+    probLeft = 0.1#rand.random();
+    probRight = 0.1#rand.random();
+    total = probUp + probDown + probLeft + probRight
+    probUp /= total
+    probDown /= total
+    probLeft /= total
+    probRight /= total
+    probList = [probUp, probDown, probLeft, probRight]
+    
+    policyMap = np.zeros([row, col, 4], dtype = 'float32')
+    oldPolicyMap = np.zeros([row, col, 4], dtype = 'float32')
 
-        for w in range(10):
-            for i in range(row):
-                for j in range(col):
-                    #for n in neighbors[i*col+j]:
-                    upValue = moveUp(mdpMap, oldPolicyMap, i, j, row, col, discount_factor, reward_for_hitting_wall, walls, learning_rate)
-                    a = computeReward(probList, upValue)
+    iteration_size = 100
+    
 
-                    downValue = moveDown(mdpMap, oldPolicyMap,i,j, row, col, discount_factor, reward_for_hitting_wall, walls, learning_rate)
-                    b = computeReward(probList, downValue)
-
-                    leftValue = moveLeft(mdpMap, oldPolicyMap, i, j, row, col, discount_factor, reward_for_hitting_wall, walls, learning_rate)
-                    c = computeReward(probList, leftValue)
-
-                    rightValue = moveRight(mdpMap, oldPolicyMap, i, j, row, col, discount_factor, reward_for_hitting_wall, walls, learning_rate)
-                    d = computeReward(probList, rightValue)
-                    policyMap[i][j][0] = a
-                    policyMap[i][j][1] = b
-                    policyMap[i][j][2] = c
-                    policyMap[i][j][3] = d
-
-                    #print upValue, downValue, leftValue, rightValue
-
-            oldPolicyMap = np.copy(policyMap);
-        
-        maxScore = np.max(policyMap, axis=2)
-        maxIndex = policyMap.argmax(axis=2)
-        toBeReturn = []
-        for k in range(maxScore.shape[0]):
-            for l in range(maxScore.shape[1]):
-                if([k,l] in walls):
-                    toBeReturn.append('Wall')
-                elif([k,l] in pits):
-                    toBeReturn.append('Pit')
-                elif([k,l] == goal):
-                    toBeReturn.append('Goal')
+    for w in range(10):
+        for i in range(row):
+            for j in range(col):
+                if([i,j] in walls):
+                    for d in range(4):
+                        policyMap[i][j][d] = reward_for_hitting_wall
+                elif([i,j] in pits):
+                    for d in range(4):
+                        policyMap[i][j][d] = reward_for_falling_in_pit
+                elif([i,j] == goal):
+                    for d in range(4):
+                        policyMap[i][j][d] = 0
                 else:
-                    if maxIndex[k,l] == 0:
-                        countMap[k][l][0] += 1
-                        toBeReturn.append('N')
-                    elif maxIndex[k,l] == 1:
-                        countMap[k][l][1] += 1
-                        toBeReturn.append('S')
-                    elif maxIndex[k,l] == 2:
-                        countMap[k][l][2] += 1
-                        toBeReturn.append('W')
-                    elif maxIndex[k,l] == 3:
-                        countMap[k][l][3] += 1
-                        toBeReturn.append('E')
+                    for s in range(iteration_size):
+                        #for n in neighbors[i*col+j]:
+                        upValue = moveUp(mdpMap, oldPolicyMap, i, j, row, col, discount_factor, reward_for_hitting_wall, walls, learning_rate)
+                        #a = computeReward(probList, upValue)
+
+                        downValue = moveDown(mdpMap, oldPolicyMap,i,j, row, col, discount_factor, reward_for_hitting_wall, walls, learning_rate)
+                        #b = computeReward(probList, downValue)
+
+                        leftValue = moveLeft(mdpMap, oldPolicyMap, i, j, row, col, discount_factor, reward_for_hitting_wall, walls, learning_rate)
+                        #c = computeReward(probList, leftValue)
+
+                        rightValue = moveRight(mdpMap, oldPolicyMap, i, j, row, col, discount_factor, reward_for_hitting_wall, walls, learning_rate)
+                        #d = computeReward(probList, rightValue)
+
+                        
+                        for d in range(4):
+                            num = rand.random();
+                            reward = 0;
+                            if(num < probUp):
+                                reward = upValue[d]
+                                policyMap[i][j][d] += reward
+                            elif(num >= probUp and num < probUp + probDown):
+                                reward = downValue[d]
+                                policyMap[i][j][d] += reward
+                            elif(num >= probUp + probDown and num < probUp + probDown + probLeft):
+                                reward = leftValue[d]
+                                policyMap[i][j][d] += reward
+                            elif(num >= probUp + probDown + probLeft and num < probUp + probDown + probLeft + probRight):
+                                reward = rightValue[d]
+                                policyMap[i][j][d] += reward
+
+                policyMap[i][j][0] /= iteration_size
+                policyMap[i][j][1] /= iteration_size
+                policyMap[i][j][2] /= iteration_size
+                policyMap[i][j][3] /= iteration_size
 
 
-        #print toBeReturn
+        oldPolicyMap = np.copy(policyMap);
+    
+    print policyMap
+    maxScore = np.max(policyMap, axis=2)
+    maxIndex = policyMap.argmax(axis=2)
+    toBeReturn = []
+    for k in range(maxScore.shape[0]):
+        for l in range(maxScore.shape[1]):
+            if([k,l] not in walls and [k,l] not in pits and [k,l] != goal):
+                if maxIndex[k,l] == 0:
+                    toBeReturn.append('N');
+                    
+                elif maxIndex[k,l] == 1:
+                    toBeReturn.append('S');
+                    
+                elif maxIndex[k,l] == 2:
+                    toBeReturn.append('W');
+                    
+                elif maxIndex[k,l] == 3:
+                    toBeReturn.append('E');
+            elif([k,l] in walls):
+                toBeReturn.append('Wall');
+            elif([k,l] in pits):
+                toBeReturn.append('Pit');
+            elif([k,l] == goal):
+                toBeReturn.append('Goal');
+    
+    print toBeReturn
 
-    print countMap
+    #print countMap
 
     return 1
 
@@ -131,6 +160,48 @@ def learning(learningRate, currentIndexValue, reward, df, nextIndexValue):
     return currentIndexValue + learningRate * (reward + df * nextIndexValue - currentIndexValue);
 
 
+
+'''
+def moveUp(mdpMap, oldPolicyMap, x,y,row,col, df, rhw, walls, learningRate):
+    forward = (x-1,y)
+
+    if(forward[0] >= 0 and (list(forward) not in walls)):
+        return learning(learningRate, oldPolicyMap[x][y][0], \
+            mdpMap[forward[0]][forward[1]], df, max(oldPolicyMap[forward[0]][forward[1]]))
+    else:
+        return learning(learningRate, oldPolicyMap[x][y][0], rhw, df, max(oldPolicyMap[x][y]))
+
+
+
+def moveDown(mdpMap, oldPolicyMap, x,y,row,col, df, rhw,walls, learningRate):
+    backward = (x+1,y)
+
+    if(backward[0] < row and (list(backward) not in walls)):
+        return learning(learningRate, oldPolicyMap[x][y][0], \
+            mdpMap[backward[0]][backward[1]], df, max(oldPolicyMap[backward[0]][backward[1]]))
+    else:
+        return learning(learningRate, oldPolicyMap[x][y][0], rhw, df, max(oldPolicyMap[x][y]))
+
+
+def moveLeft(mdpMap, oldPolicyMap, x,y,row,col, df, rhw, walls, learningRate):
+    below = (x, y-1)
+
+    if(below[1] >= 0 and (list(below) not in walls)):
+        return learning(learningRate, oldPolicyMap[x][y][0], \
+            mdpMap[below[0]][below[1]], df, max(oldPolicyMap[below[0]][below[1]]))
+    else:
+        return learning(learningRate, oldPolicyMap[x][y][0], rhw, df, max(oldPolicyMap[x][y]))
+
+
+def moveRight(mdpMap, oldPolicyMap, x,y,row,col, df, rhw,walls, learningRate):
+    below = (x, y+1)
+
+    if(below[1] < col and (list(below) not in walls)):
+        return learning(learningRate, oldPolicyMap[x][y][0], \
+            mdpMap[below[0]][below[1]], df, max(oldPolicyMap[below[0]][below[1]]))
+    else:
+        return learning(learningRate, oldPolicyMap[x][y][0], rhw, df, max(oldPolicyMap[x][y]))
+        '''
 def moveUp(mdpMap, oldPolicyMap, x,y,row,col, df, rhw, walls, learningRate):
     forward = (x-1,y)
     backward = (x+1,y)
@@ -253,6 +324,3 @@ def moveRight(mdpMap, oldPolicyMap, x,y,row,col, df, rhw,walls, learningRate):
         toBeReturn.append(learning(learningRate, oldPolicyMap[x][y][0], rhw, df, max(oldPolicyMap[x][y])))
 
     return toBeReturn
-
-
-
